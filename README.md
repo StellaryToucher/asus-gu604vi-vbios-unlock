@@ -153,3 +153,9 @@ USB recovery path (PE + nvflash) for blind re-flashing.
 Not affiliated with, sponsored by, or endorsed by ASUS or NVIDIA. Firmware remains the property of its
 respective owners and is provided here for research and reference only. Flashing firmware carries a risk
 of bricking the device. Proceed at your own risk.
+
+## License
+
+The documentation and any original code in this repository are released under the MIT License
+(see [LICENSE](./LICENSE)). This license does **not** extend to the vBIOS firmware files under `vbios/`,
+which remain the property of their respective owners.
