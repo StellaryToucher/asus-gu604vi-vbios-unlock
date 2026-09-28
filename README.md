@@ -158,4 +158,4 @@ of bricking the device. Proceed at your own risk.
 
 The documentation and any original code in this repository are released under the MIT License
 (see [LICENSE](./LICENSE)). This license does **not** extend to the vBIOS firmware files under `vbios/`,
-which remain the property of their respective owners.
+which remain the property of their respective owners (see [NOTICE](./NOTICE)).

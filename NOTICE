@@ -1,0 +1,21 @@
+NOTICE
+======
+
+License scope
+-------------
+
+The MIT License (see LICENSE) applies to the documentation and any original
+code in this repository.
+
+It does NOT apply to the vBIOS firmware files under the `vbios/` directory.
+Those files remain the property of their respective owners (ASUS / NVIDIA) and
+are included solely for research and reference purposes.
+
+Trademarks
+----------
+
+ASUS, ROG, Zephyrus and Strix are trademarks of ASUSTeK Computer Inc.
+NVIDIA, GeForce and RTX are trademarks of NVIDIA Corporation.
+
+This project is independent and is not affiliated with, sponsored by, or
+endorsed by ASUS or NVIDIA.
