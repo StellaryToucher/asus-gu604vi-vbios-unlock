@@ -1,101 +1,155 @@
-# ASUS ROG Zephyrus M16 (GU604VI) — Cross-Flash vBIOS to Lift the Whole-Machine Power Budget
+# Raising the Whole-Machine Power Budget on an ASUS ROG Zephyrus M16 (GU604VI) by Cross-Flashing a Donor vBIOS
 
-> 通过给华硕幻16 GU604VI 刷入同厂 ROG 魔霸新锐（Strix G16, G614JI）的 RTX 4070 Laptop vBIOS，
-> 实测把**整机功耗预算从约 155W 抬到约 175W**，**CPU 拿到 +20W（40W→55~60W）**，**1% low 显著变稳**，
-> 平均帧基本不变（GPU 受电压/频率限制，并非功耗受限）。
+**A reproducible case study — platform power budget 155 W → 175 W, CPU headroom +20 W, materially improved 1% lows, with average FPS unchanged.**
 
----
-
-## 一句话结论 / TL;DR
-
-- **整机总盘**：155W → **175W**
-- **CPU**：40W → **55~60W**
-- **GPU**：~110–120W（未变，电压墙限制）
-- **效果**：平均帧不变，**1% low 明显改善**（卡顿减少）
-
-Flashing an ASUS ROG Strix G16 (2023, G614JI) 4070 Laptop vBIOS onto a Zephyrus M16 GU604VI
-raises the platform power budget (~155W → ~175W). The CPU gains ~20W, **1% lows improve markedly**,
-average FPS unchanged (the GPU is voltage/frequency-limited, not power-limited).
+[中文说明请见 README.zh-CN.md](./README.zh-CN.md)
 
 ---
 
-## 目标机 / Target machine
+## TL;DR
 
-| | |
-|---|---|
-| 型号 | ASUS ROG Zephyrus M16（幻16）GU604VI, 2023 |
-| GPU | NVIDIA RTX 4070 Laptop 8GB, Device ID `10DE-2860`, Subsystem `1043-1473` |
-| CPU | Intel Core i9-13900H |
-| 适配器 | 240W |
+Cross-flashing the RTX 4070 Laptop GPU vBIOS from an ASUS ROG Strix G16 (2023, G614JI) onto a
+Zephyrus M16 (GU604VI) measurably raised the **whole-machine power budget** from roughly **155 W to 175 W**.
 
-## 刷入的 vBIOS / Donor vBIOS
+- **Total system power draw:** ~155 W → **~175 W**
+- **CPU package power (in-game):** ~40 W → **~55–60 W**
+- **GPU power draw (in-game):** ~110 W → ~110–120 W (unchanged; voltage/frequency-limited, not power-limited)
+- **Average FPS:** essentially unchanged
+- **1% lows:** **markedly more stable** (fewer CPU-bound hitches)
 
-- 文件：`vbios/274670_Asus_ROG_Strix_G614_95.06.15.00.F2.rom`
-- 出处机型：ASUS ROG 魔霸新锐 / Strix G16（2023）**G614JI**
-- Subsystem `1043-14D3`；板号 `E3757 SKU 10`；ASID `N151G614JI.001`
-- 供体平台规格：HX CPU（i7-13650HX / i9-13980HX）、RTX 4070 140W（115W + 25W DB）、280W 适配器
-- 供体实测双烤：GPU 129W + CPU 56W ≈ **185W**（增强模式）；手动全速 **195W**
+In other words, this modification did not raise the performance ceiling — it raised the floor.
 
-## 原理 / Why it works
+---
 
-1. GPU vBIOS 里不只有显卡的 TGP/DB，还带着 **EC 用来计算整机功耗预算的平台配置**。
-2. 供体是**更高功耗的 HX 平台**，EC 读到新值后把**整机天花板**从 155W 抬到了 175W。
-3. 因为本机 GPU **被电压/频率限制在 ~120W**（并非功耗受限），多出来的预算就分给了**唯一还想要更多电的 CPU**。
-4. 于是 CPU 松绑 → **CPU 瓶颈的瞬间不再被压 → 1% low 变稳**；而 GPU 侧没变 → 平均帧不变。
+## Background
 
-> 软件设 PL 只是“请求”；vBIOS 改的是 EC 用来算预算的“输入”。
+The ASUS ROG Zephyrus M16 (2023, GU604VI) pairs an Intel Core i9-13900H with an RTX 4070 Laptop GPU
+(device ID `10DE-2860`) behind a 240 W adapter. Under sustained CPU+GPU load the machine would settle at
+roughly **155 W combined**, with the GPU consuming ~110 W and the CPU throttled to ~40 W — despite the
+CPU's own software power limit (PL1) being configured far higher, and despite the GPU never reaching its
+own 140 W TGP.
 
-## 操作步骤 / How to flash
+This is characteristic of a **coupled power-arbitration design**, where the embedded controller (EC)
+enforces a platform-wide budget rather than letting the CPU and GPU power limits act independently.
 
-1. 用 **GPU-Z** 备份原厂 vBIOS（两份）。
-2. 确认**显存品牌**与要刷的 ROM 匹配。
-3. BIOS 里**关闭 Secure Boot**。
-4. 管理员终端：
+## Hypothesis
+
+On many gaming laptops the GPU vBIOS is not limited to GPU-side parameters. It also carries the
+**platform power provisioning** that the EC reads when computing the machine's total power budget.
+Consequently, a vBIOS taken from a machine with a substantially higher platform budget (an HX-class CPU
+platform with a 280 W adapter) should cause the EC to raise the total budget — with the surplus flowing to
+whichever subsystem still demands more power.
+
+Because this GPU operates at its voltage/frequency sweet spot (~110 W) and is **not** power-limited, it
+does not request the surplus; the CPU does. The expected result is therefore improved CPU headroom and
+better frame-time consistency, without a change in average FPS.
+
+## Hardware
+
+| | Target machine | Donor machine |
+|---|---|---|
+| Model | ASUS ROG Zephyrus M16 (GU604VI), 2023 | ASUS ROG Strix G16 (G614JI), 2023 |
+| CPU | Intel Core i9-13900H (H-series) | Intel Core i7-13650HX / i9-13980HX (HX-series) |
+| GPU | RTX 4070 Laptop, Device ID `10DE-2860`, Subsystem `1043-1473` | RTX 4070 Laptop |
+| GPU TGP | 140 W (115 W + 25 W Dynamic Boost) | 140 W (115 W + 25 W Dynamic Boost) |
+| Adapter | 240 W | 280 W |
+
+Donor vBIOS metadata:
+
+- File: `vbios/274670_Asus_ROG_Strix_G614_95.06.15.00.F2.rom`
+- VBIOS version: `95.06.15.00.F2`
+- Subsystem ID: `1043-14D3`; board: `E3757 SKU 10`; ASID: `N151G614JI.001`
+- Reference: TechPowerUp VGA BIOS Collection, entry `274670`
+
+Donor platform, as measured by third-party reviews (dual-load, 30 min):
+
+- GPU ~129 W + CPU ~56 W ≈ **185 W** (Performance mode)
+- GPU ~117 W + CPU ~78 W ≈ **195 W** (Manual mode, fans at max)
+
+Notably, the donor's CPU draw under dual load (~56 W) closely matches the ~55–60 W observed on the
+target machine after flashing — a strong indication that the EC adopted the donor's platform behaviour.
+
+## Procedure
+
+1. Back up the stock vBIOS with GPU-Z (two independent copies).
+2. Confirm the GDDR6 memory vendor matches the donor ROM's supported list (Samsung / Hynix / Micron).
+3. Disable Secure Boot in UEFI.
+4. From an elevated terminal:
+
    ```text
    nvflash64 --protectoff
    nvflash64 -6 "vbios\274670_Asus_ROG_Strix_G614_95.06.15.00.F2.rom"
    ```
-5. 重启，用 GPU-Z / HWiNFO 核对。
 
-## 实测对比 / Measured results
+5. Reboot (a vBIOS change only takes effect on the next power-on).
+6. Verify with GPU-Z and HWiNFO.
 
-| 项目 | 原厂 vBIOS | 刷入 G614JI vBIOS |
+## Results
+
+| Metric | Stock vBIOS | Donor (G614JI) vBIOS |
 |---|---|---|
-| VBIOS Version | (stock) | `95.06.15.00.f2` |
-| Default Power Limit | 80W | **100W** |
-| Max Power Limit | 140W | 140W |
-| 整机总盘（实测峰值） | ~155W | **~175W** |
-| CPU 功耗（游戏） | ~40W | **~55–60W** |
-| GPU 功耗（游戏） | ~110W | ~110–120W |
-| 平均帧 | 基准 | 基本不变 |
-| **1% low** | 基准 | **明显更稳** |
-| 副作用 | — | CPU 热经共享散热传导，GPU 会掉一点频 |
+| VBIOS version | stock | `95.06.15.00.f2` |
+| Default power limit | 80 W | **100 W** |
+| Max power limit | 140 W | 140 W |
+| Combined power budget (observed peak) | ~155 W | **~175 W** |
+| CPU package power (in-game) | ~40 W | **~55–60 W** |
+| GPU power draw (in-game) | ~110 W | ~110–120 W |
+| Average FPS | baseline | unchanged |
+| 1% low | baseline | **materially improved** |
 
-## 风险与注意 / Warnings
+The combined budget did not reach the donor's full 185–195 W, indicating that the target machine's own
+EC and 240 W adapter impose an additional ceiling at approximately 175 W.
 
-- **刷写有变砖风险**，务必先备份原厂 ROM，并准备 U 盘盲刷环境。
-- 跨机型刷写可能影响：**外接 HDMI/DP、风扇策略、Dynamic Boost、MUX/独显直连**，刷后请立刻验证。
-- 供电（VRM）是主板硬件，跨刷不会改变；4070 Laptop 各厂多为同一参考板（板号 `E3757`）。
-- 本机为**轻薄模具**，总盘抬高后**发热明显增加**；建议用 CPU PL 裁量（SPL 与 sPPT 一起限）。
-- 本机共享散热：**CPU 的每一瓦会部分转嫁到 GPU**，需在“1% low 收益”与“GPU 掉频”之间取舍。
+## Mechanism
 
-## 文件 / Files
+1. A GPU vBIOS carries not only the GPU's TGP/Dynamic Boost values but also the platform power
+   provisioning that the EC consumes when arbitrating the machine-wide budget.
+2. The donor is a higher-power (HX-class) platform; on reading the new values the EC raised the total
+   budget from ~155 W to ~175 W.
+3. Because the target GPU is voltage/frequency-limited (~120 W) rather than power-limited, it did not
+   absorb the surplus.
+4. The surplus therefore went to the CPU — the only subsystem still demanding more — reducing CPU-bound
+   hitching and improving 1% lows.
 
-- `vbios/274670_Asus_ROG_Strix_G614_95.06.15.00.F2.rom` — **主 ROM（成功案例）**，源自 G614JI
-- `vbios/268423_Asus_ROG_Strix_G713_95.06.15.40.56.rom` — 备选：魔霸 G17（G713PI）
-- `vbios/271309_Asus_ROG_Strix_G814_95.06.15.00.F3.rom` — 备选：魔霸 G18（G814JI）
-- `vbios/265613_Asus_Zephyrus_M16_GU603VI_95.06.1D.00.19.rom` — 备选：幻16（GU603VI，同系）
+Put simply: setting a software power limit is a *request*; the vBIOS changes the *input* the EC uses to
+compute what is actually permitted.
 
-## 来源 / Sources
+## Caveats
 
-- vBIOS 均取自 [TechPowerUp VGA BIOS Collection](https://www.techpowerup.com/vgabios/)（未验证上传区）。
-- 主 ROM 对应 TPU 条目 id `274670`。
-- 供体双烤数据来源：什么值得买《ROG魔霸新锐2023真机深度实测报告》。
+- **VRM / power delivery** is board hardware and is untouched by a vBIOS flash. For the same GPU tier the
+  VRM is comparable across vendors (all observed 4070 Laptop ROMs share the reference board ID `E3757`).
+  The relevant question is only whether the requested power exceeds the board's design — 140 W is within
+  the target machine's factory rating.
+- **The real risks of cross-flashing are not VRM-related**, but: EC/subsystem-ID mismatch (Dynamic Boost
+  and power arbitration), display connector mapping (external HDMI/DP), fan tables, and MUX/Optimus
+  behaviour. Verify all of these immediately after flashing.
+- **Thermals.** The target machine is a thin chassis with a shared CPU/GPU cooling module; the higher
+  budget increases heat output noticeably, and CPU heat bleeds into the GPU, causing some GPU clock loss.
+  In this case the 1% low improvement was judged to outweigh the GPU clock reduction. CPU power can be
+  trimmed via its PL (set both SPL and sPPT to avoid short bursts).
+- With a 175 W budget and the GPU drawing ~120 W, the CPU's practical ceiling is roughly 55 W
+  (175 − 120).
 
-## 免责声明 / Disclaimer
+## Reproducibility
 
-- 本项目与 ASUS / NVIDIA 无任何关联。
-- 固件版权归 ASUS / NVIDIA 所有，此处仅用于研究与技术交流。
-- 刷写风险自负。
-- Not affiliated with ASUS or NVIDIA. Firmware remains the property of its respective owners;
-  provided for research/reference only. Flash at your own risk.
+This is a single-machine case study, not a controlled benchmark. Results depend on the specific EC
+firmware, adapter, and silicon. Reproduce at your own risk, and always retain a stock-ROM backup plus a
+USB recovery path (PE + nvflash) for blind re-flashing.
+
+## Files
+
+- `vbios/274670_Asus_ROG_Strix_G614_95.06.15.00.F2.rom` — **primary donor ROM** (Strix G16 G614JI)
+- `vbios/268423_Asus_ROG_Strix_G713_95.06.15.40.56.rom` — alternate: Strix G17 (G713PI)
+- `vbios/271309_Asus_ROG_Strix_G814_95.06.15.00.F3.rom` — alternate: Strix G18 (G814JI)
+- `vbios/265613_Asus_Zephyrus_M16_GU603VI_95.06.1D.00.19.rom` — alternate: Zephyrus M16 (GU603VI, same family)
+
+## Sources
+
+- vBIOS files: [TechPowerUp VGA BIOS Collection](https://www.techpowerup.com/vgabios/) (unverified uploads).
+- Donor dual-load figures: independent review of the ROG Strix G16 / 魔霸新锐 2023 (smzdm.com).
+
+## Disclaimer
+
+Not affiliated with, sponsored by, or endorsed by ASUS or NVIDIA. Firmware remains the property of its
+respective owners and is provided here for research and reference only. Flashing firmware carries a risk
+of bricking the device. Proceed at your own risk.
